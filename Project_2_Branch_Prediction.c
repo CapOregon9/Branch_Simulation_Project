@@ -60,31 +60,26 @@ int main(int argc, char *argv[]) {
     predictionValues.nValue = 0;
 
     //allocate space for file path
-    addressData.filePath = (char *)malloc(sizeof(argv[3]) * sizeof(char));
+    addressData.filePath = (char *)malloc(strlen(argv[3]) * sizeof(char));
 
     //store arguments
     maskData.mBits = atoi(argv[1]);
-    //printf("%d\n", maskData.mBits);
     predictionValues.nBits = atoi(argv[2]);
-    //printf("%d\n", predictionValues.nBits);
     strcpy(addressData.filePath,argv[3]);
-    //printf("%s\n", addressData.filePath);
-    //maskData.mBits = 8;
-    //predictionValues.nBits = 5;
-    //addressData.filePath = "D:/Documents/Comp_Arch/gobmk_trace.txt";
 
     //calculate index size
     getIndex(&predictionValues, &maskData);
 
+    //allocate space for prediction table
     int *predictionTable = (int *)malloc((int)predictionValues.indexSize * sizeof(int));
 
+    //initialize values in prediction table to be 2 or weakly taken
     initializePredictionTable(predictionTable, &predictionValues);
-    //printPredictionTable(predictionTable, &predictionValues);
-
 
     //create index mask
     getIndexMask(&maskData, &predictionValues);
 
+    //read the trace file
     if ((cfPtr = fopen(addressData.filePath, "r")) == NULL) { //file declaration
 		puts("File could not be opened.");
 	}
@@ -92,24 +87,21 @@ int main(int argc, char *argv[]) {
         char lineString[64];
         int tempCounter = 0;
         while(fgets(lineString, 64, cfPtr) != NULL) {
+            //parse input and calculate index
             sscanf(lineString,"%s %c", &addressData.address, &addressData.actualHit);
             addressData.addressValue = strtoll(addressData.address, NULL, 16);
-            //printf("%lld\n", addressData.addressValue);
             getIndexFromAddress(&maskData, &addressData);
-            //printf("%d\n", addressData.addressIndex);
             getCurrentIndex(&maskData, &addressData, &predictionValues);
-            //printf("%d\n", addressData.currentIndex);
             predictionData.expectedPath = predictionTable[addressData.currentIndex];
+            //switch between cases of the value in the prediction table at that index
             switch (predictionData.expectedPath) {
                 case 0:
                     predictionData.expectedHit = 'n';
                     if (predictionData.expectedHit == addressData.actualHit) {
                         hitData.hits++;
-                        //printf("Case 1: I did a hit\n");
                     } else {
                         hitData.misses++;
                         predictionTable[addressData.currentIndex] += 1;
-                        //printf("Case 1: I did a miss\n");
                     }
                     break;
                 case 1:
@@ -117,11 +109,9 @@ int main(int argc, char *argv[]) {
                     if (predictionData.expectedHit == addressData.actualHit) {
                         hitData.hits++;
                         predictionTable[addressData.currentIndex] -= 1;
-                        //printf("Case 1: I did a hit\n");
                     } else {
                         hitData.misses++;
                         predictionTable[addressData.currentIndex] += 1;
-                        //printf("Case 1: I did a miss\n");
                     }
                     break;
                 case 2:
@@ -129,41 +119,39 @@ int main(int argc, char *argv[]) {
                     if (predictionData.expectedHit == addressData.actualHit) {
                         hitData.hits++;
                         predictionTable[addressData.currentIndex] += 1;
-                        //printf("Case 2: I did a hit\n");
                     } else {
                         hitData.misses++;
                         predictionTable[addressData.currentIndex] -= 1;
-                        //printf("Case 2: I did a miss\n");
                     }
                     break;
                 case 3:
                     predictionData.expectedHit = 't';
                     if (predictionData.expectedHit == addressData.actualHit) {
                         hitData.hits++;
-                        //printf("Case 3: I did a hit\n");
                     } else {
                         hitData.misses++;
                         predictionTable[addressData.currentIndex] -= 1;
-                        //printf("Case 3: I did a miss\n");
                     }
                     break;
             }
+            //calculate new GHB (nValue)
             if (addressData.actualHit == 't') {
                 predictionValues.nValue = (predictionValues.nValue) >> 1;
                 predictionValues.nValue = (predictionValues.nValue) | ((int)pow(2, (predictionValues.nBits - 1)));
             } else {
                 predictionValues.nValue = (predictionValues.nValue) >> 1;
             }
-            //printf("%d\n", predictionValues.nValue);
         }
+        //calculate miss prediction rate
         unsigned long long totalHitsAndMisses = hitData.hits + hitData.misses;
         double missRatio = hitData.misses / (totalHitsAndMisses * 1.0);
         double missRate = (missRatio * 100.0);
+        //output results
         printf("Miss Prediction Rate: %.2f%%", missRate);
     }
 
+    //free memory used with mallocs
     flushPredictionTable(predictionTable);
-    
     free(addressData.filePath);
 }
 
