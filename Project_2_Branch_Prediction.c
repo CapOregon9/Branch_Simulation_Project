@@ -36,7 +36,7 @@ struct addressData {
     int currentIndex;
     unsigned long long addressValue;
     int addressIndex;
-    char * filePath;
+    FILE * filePath;
 };
 
 void getIndex(struct predictionTableData *predictionValues, struct maskData *maskData);
@@ -49,7 +49,6 @@ void printPredictionTable(int *predictionTable, struct predictionTableData *pred
 
 int main(int argc, char *argv[]) {
     //Initialize variables
-    FILE *cfPtr;
     struct predictionTableData predictionValues;
     struct predictionData predictionData;
     struct maskData maskData;
@@ -60,12 +59,11 @@ int main(int argc, char *argv[]) {
     predictionValues.nValue = 0;
 
     //allocate space for file path
-    addressData.filePath = (char *)malloc(strlen(argv[3]) * sizeof(char));
+    addressData.filePath = fopen(argv[3], "r");
 
     //store arguments
     maskData.mBits = atoi(argv[1]);
     predictionValues.nBits = atoi(argv[2]);
-    strcpy(addressData.filePath,argv[3]);
 
     //calculate index size
     getIndex(&predictionValues, &maskData);
@@ -80,13 +78,13 @@ int main(int argc, char *argv[]) {
     getIndexMask(&maskData, &predictionValues);
 
     //read the trace file
-    if ((cfPtr = fopen(addressData.filePath, "r")) == NULL) { //file declaration
+    if (addressData.filePath == NULL) { //file declaration
 		puts("File could not be opened.");
 	}
 	else {
         char lineString[64];
         int tempCounter = 0;
-        while(fgets(lineString, 64, cfPtr) != NULL) {
+        while(fgets(lineString, 64, addressData.filePath) != NULL) {
             //parse input and calculate index
             sscanf(lineString,"%s %c", &addressData.address, &addressData.actualHit);
             addressData.addressValue = strtoll(addressData.address, NULL, 16);
@@ -142,6 +140,7 @@ int main(int argc, char *argv[]) {
                 predictionValues.nValue = (predictionValues.nValue) >> 1;
             }
         }
+        fclose(addressData.filePath);
         //calculate miss prediction rate
         unsigned long long totalHitsAndMisses = hitData.hits + hitData.misses;
         double missRatio = hitData.misses / (totalHitsAndMisses * 1.0);
